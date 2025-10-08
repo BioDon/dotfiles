@@ -1,0 +1,18 @@
+#!/bin/sh
+bat=/sys/class/power_supply/BAT0
+perc=$(cat "$bat/capacity" 2>/dev/null || echo 0)
+state=$(cat "$bat/status" 2>/dev/null || echo Unknown)
+
+# Choose icon
+if [ "$state" = "Charging" ] || [ "$state" = "Full" ] && grep -qi charging <<<"$state"; then
+    icon=""
+else
+    if   [ "$perc" -ge 90 ]; then icon=""
+    elif [ "$perc" -ge 70 ]; then icon=""
+    elif [ "$perc" -ge 50 ]; then icon=""
+    elif [ "$perc" -ge 30 ]; then icon=""
+    else icon=""
+    fi
+fi
+
+printf "%s %s" "$icon" " " "$perc"

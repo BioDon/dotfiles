@@ -1,0 +1,3 @@
+#!/bin/sh
+# NetworkManager Terminal UI launcher
+nmtui

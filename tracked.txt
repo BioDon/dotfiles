@@ -9,3 +9,4 @@ slstatus-1.1/config.h
 st-btw/config.h
 # Add more paths below as you decide to track them.
 
+.local/bin
