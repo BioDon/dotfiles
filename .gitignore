@@ -1,0 +1,8 @@
+# Ignore everything by default? (We are allow-listing via tracked.txt)
+# Usually you still commit everything produced by sync. Keep ignore minimal.
+
+# Exclude potential temporary files
+*~
+*.swp
+*.swo
+.tracked-cache

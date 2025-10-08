@@ -1,0 +1,10 @@
+# One path per line, relative to $HOME, to include in repo.
+# Lines starting with # are comments.
+.bashrc
+.bash_profile
+.xinitrc
+bootstrap/install.sh
+dwm-btw/config.h
+slstatus-1.1/config.h
+st-btw/config.h
+# Add more paths below as you decide to track them.
