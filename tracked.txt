@@ -10,3 +10,8 @@ st-btw/config.h
 # Add more paths below as you decide to track them.
 
 .local/bin
+dwm-btw/patches
+st-btw/patches
+slstatus-1.1/patches
+slock-1.6/config.h
+slock-1.6/patches
