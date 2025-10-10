@@ -57,11 +57,76 @@ ensure_yay() {
 }
 
 build_suckless() {
+  # Determine dotfiles directory (where this script is located)
+  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local dotfiles_dir="$(dirname "$script_dir")"
+  
+  # Map directory names to their git URLs and versions
+  declare -A repo_urls=(
+    [dwm-btw]="git://git.suckless.org/dwm"
+    [st-btw]="git://git.suckless.org/st"
+    [slstatus-1.1]="git://git.suckless.org/slstatus"
+    [slock-1.6]="git://git.suckless.org/slock"
+  )
+  
+  declare -A versions=(
+    [dwm-btw]=""  # latest
+    [st-btw]=""   # latest
+    [slstatus-1.1]="1.1"
+    [slock-1.6]="1.6"
+  )
+  
   local roots=(dwm-btw st-btw slstatus-1.1 slock-1.6)
   for dir in "${roots[@]}"; do
-    if [[ -d "$HOME/$dir" ]]; then
+    local target_dir="$HOME/$dir"
+    local repo_url="${repo_urls[$dir]}"
+    local version="${versions[$dir]}"
+    
+    # Clone repository if it doesn't exist
+    if [[ ! -d "$target_dir" ]]; then
+      info "Cloning $dir from $repo_url"
+      run git clone "$repo_url" "$target_dir"
+      
+      # Checkout specific version if specified
+      if [[ -n "$version" ]]; then
+        pushd "$target_dir" >/dev/null
+        run git checkout "$version"
+        popd >/dev/null
+      fi
+    else
+      info "$dir already exists at $target_dir"
+    fi
+    
+    # Copy config.h from dotfiles if it exists
+    local dotfiles_config="$dotfiles_dir/$dir/config.h"
+    if [[ -f "$dotfiles_config" ]]; then
+      info "Copying config.h from dotfiles to $dir"
+      run cp "$dotfiles_config" "$target_dir/config.h"
+    fi
+    
+    # Apply patches from dotfiles if they exist
+    local dotfiles_patches="$dotfiles_dir/$dir/patches"
+    # Check for nested patches directory structure
+    if [[ -d "$dotfiles_patches/patches" ]]; then
+      dotfiles_patches="$dotfiles_patches/patches"
+    fi
+    
+    if [[ -d "$dotfiles_patches" ]]; then
+      info "Applying patches from dotfiles to $dir"
+      pushd "$target_dir" >/dev/null
+      for patch in "$dotfiles_patches"/*.diff "$dotfiles_patches"/*.patch; do
+        if [[ -f "$patch" ]]; then
+          info "Applying $(basename "$patch")"
+          run patch -p1 -N < "$patch" || warn "Patch $(basename "$patch") may already be applied or failed"
+        fi
+      done
+      popd >/dev/null
+    fi
+    
+    # Build and install
+    if [[ -d "$target_dir" ]]; then
       info "Building $dir"
-      pushd "$HOME/$dir" >/dev/null
+      pushd "$target_dir" >/dev/null
       run make clean || true
       run make
       # install may require root for /usr/local
@@ -72,7 +137,7 @@ build_suckless() {
       fi
       popd >/dev/null
     else
-      warn "Skip $dir (directory not found)"
+      warn "Skip $dir (directory not found after clone attempt)"
     fi
   done
 }
