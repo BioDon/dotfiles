@@ -8,7 +8,8 @@ set -euo pipefail
 #  - Install base-devel (for building), git
 #  - Install/ensure yay (AUR helper) if missing
 #  - Install terminus font packages
-#  - Build & install local suckless sources (dwm-btw, st-btw, slstatus-1.1, slock-1.6)
+#  - Clone/download, configure, build & install suckless tools (dwm-btw, st-btw, slstatus-1.1, slock-1.6)
+#    from official sources, then apply custom configs and patches from this repo
 #  - Deploy battery script to ~/.local/bin (preserve existing via backup)
 #  - Leave everything else untouched (NO services, NO extra packages)
 
@@ -35,7 +36,7 @@ need_sudo() {
 pkg_installed() { pacman -Qi "$1" >/dev/null 2>&1; }
 
 ensure_packages() {
-  local pkgs=(base-devel git terminus-font)
+  local pkgs=(base-devel git terminus-font curl)
   # xos4-terminus might be named 'terminus-font'; we keep minimal.
   sudo pacman -Syu --needed --noconfirm "${pkgs[@]}"
 }
@@ -57,11 +58,71 @@ ensure_yay() {
 }
 
 build_suckless() {
+  # Map directory names to their source URLs and versions
+  # dwm-btw and st-btw are custom names; we'll use latest git versions
+  declare -A sources=(
+    ["dwm-btw"]="https://git.suckless.org/dwm"
+    ["st-btw"]="https://git.suckless.org/st"
+    ["slstatus-1.1"]="https://dl.suckless.org/tools/slstatus-1.1.tar.gz"
+    ["slock-1.6"]="https://dl.suckless.org/tools/slock-1.6.tar.gz"
+  )
+  
+  local repo_dir
+  repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  
   local roots=(dwm-btw st-btw slstatus-1.1 slock-1.6)
   for dir in "${roots[@]}"; do
-    if [[ -d "$HOME/$dir" ]]; then
+    local target_dir="$HOME/$dir"
+    local config_src="$repo_dir/$dir/config.h"
+    local patches_src="$repo_dir/$dir/patches"
+    
+    # Clone or extract source if not present
+    if [[ ! -d "$target_dir" ]]; then
+      info "Setting up $dir from source"
+      local url="${sources[$dir]}"
+      
+      if [[ "$url" =~ \.tar\.gz$ ]]; then
+        # Download and extract tarball
+        local tmpdir
+        tmpdir=$(mktemp -d)
+        info "Downloading $url"
+        run curl -L -o "$tmpdir/source.tar.gz" "$url"
+        run tar -xzf "$tmpdir/source.tar.gz" -C "$HOME"
+        rm -rf "$tmpdir"
+      else
+        # Clone git repository
+        info "Cloning $url"
+        run git clone "$url" "$target_dir"
+      fi
+    else
+      info "$dir already exists at $target_dir"
+    fi
+    
+    # Copy custom config.h if available
+    if [[ -f "$config_src" ]]; then
+      info "Copying custom config.h to $dir"
+      run cp "$config_src" "$target_dir/config.h"
+    else
+      warn "No custom config.h found for $dir"
+    fi
+    
+    # Apply patches if available
+    if [[ -d "$patches_src" ]]; then
+      info "Applying patches to $dir"
+      pushd "$target_dir" >/dev/null
+      for patch in "$patches_src"/**/*.diff "$patches_src"/**/*.patch; do
+        if [[ -f "$patch" ]]; then
+          info "Applying patch: $(basename "$patch")"
+          run patch -p1 < "$patch" || warn "Patch $(basename "$patch") may have already been applied or failed"
+        fi
+      done
+      popd >/dev/null
+    fi
+    
+    # Build and install
+    if [[ -d "$target_dir" ]]; then
       info "Building $dir"
-      pushd "$HOME/$dir" >/dev/null
+      pushd "$target_dir" >/dev/null
       run make clean || true
       run make
       # install may require root for /usr/local
@@ -72,7 +133,7 @@ build_suckless() {
       fi
       popd >/dev/null
     else
-      warn "Skip $dir (directory not found)"
+      err "Failed to set up $dir"
     fi
   done
 }
