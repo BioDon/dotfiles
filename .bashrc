@@ -15,3 +15,8 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Set cursor theme
 export XCURSOR_THEME="Bibata-Modern-Classic"
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/home/charan/.lmstudio/bin"
+# End of LM Studio CLI section
+
